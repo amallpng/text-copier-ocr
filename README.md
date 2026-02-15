@@ -18,7 +18,7 @@ Made by **Amall**.
 
 1. **Clone or Download** this repository.
    ```bash
-   git clone https://github.com/yourusername/text-copier-ocr.git
+   git clone https://github.com/amallpng/text-copier-ocr.git
    ```
 2. Open Chrome and go to `chrome://extensions`.
 3. Enable **Developer mode** in the top right.
@@ -53,4 +53,7 @@ Made by **Amall**.
 
 ## License
 
-MIT License. Free to use and modify.
+This project is licensed under the **MIT License**. See the `LICENSE` file for details.
+
+Free to use, modify, and distribute.
+
