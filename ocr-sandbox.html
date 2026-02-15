@@ -7,38 +7,94 @@
 
 <body>
     <script>
-        window.addEventListener('message', async (event) => {
-            const { action, imageData, lang } = event.data;
+        let ocrWorker = null;
+        let isInitializing = false;
 
-            if (action === 'ocr') {
-                try {
-                    // Report status
-                    event.source.postMessage({ action: 'progress', data: { status: 'initializing', progress: 0 } }, event.origin);
+        async function getWorker(sourceEvent) {
+            if (ocrWorker) return ocrWorker;
 
-                    // Use local paths for everything to rely on the downloaded files
-                    const worker = await Tesseract.createWorker('eng', 1, {
-                        workerPath: 'lib/worker.min.js',
-                        corePath: 'lib/tesseract-core.wasm.js',
-                        langPath: 'lib/', // Points to lib/eng.traineddata.gz
-                        logger: m => {
-                            event.source.postMessage({ action: 'progress', data: m }, event.origin);
-                        },
-                        errorHandler: err => {
-                            console.error("Tesseract Internal Error:", err);
-                            event.source.postMessage({ action: 'error', error: "Internal: " + err }, event.origin);
+            // Check for blob URL
+            const langBlobUrl = sourceEvent && sourceEvent.data && sourceEvent.data.langBlobUrl;
+
+            // If already initing, wait
+            if (isInitializing) {
+                while (isInitializing) {
+                    await new Promise(r => setTimeout(r, 100));
+                }
+                return ocrWorker;
+            }
+
+            isInitializing = true;
+            try {
+                // Post progress if possible
+                if (sourceEvent) {
+                    sourceEvent.source.postMessage({ action: 'progress', data: { status: 'loading core', progress: 0 } }, sourceEvent.origin);
+                }
+
+                // HACK: Tesseract expects a folder for langPath and appends "eng.traineddata.gz"
+                // We pass "blobUrl?" so it becomes "blobUrl?eng.traineddata.gz"
+                // The browser ignores the query string for Blobs and returns the file!
+                const effectiveLangPath = langBlobUrl ? (langBlobUrl + '?') : 'lib/';
+                console.log("Using Lang Path:", effectiveLangPath);
+
+                const worker = await Tesseract.createWorker('eng', 1, {
+                    workerPath: 'lib/worker.min.js',
+                    corePath: 'lib/tesseract-core.wasm.js',
+                    langPath: effectiveLangPath,
+                    logger: m => {
+                        // Only report progress if we have a target
+                        if (sourceEvent) {
+                            sourceEvent.source.postMessage({ action: 'progress', data: m }, sourceEvent.origin);
                         }
-                    });
+                    },
+                    errorHandler: err => {
+                        console.error("Tesseract Internal Error:", err);
+                        if (sourceEvent) {
+                            sourceEvent.source.postMessage({ action: 'error', error: "Internal: " + err }, sourceEvent.origin);
+                        }
+                    }
+                });
 
-                    event.source.postMessage({ action: 'progress', data: { status: 'recognizing', progress: 0.1 } }, event.origin);
+                ocrWorker = worker;
+                isInitializing = false;
+                console.log("Worker initialized successfully");
+                return worker;
+            } catch (err) {
+                isInitializing = false;
+                console.error("Worker init failed:", err);
+                throw err;
+            }
+        }
 
+        // Auto-init immediately on load? 
+        // We can try, but without a user gesture or event, messages might be lost.
+        // It's safer to just do it, logs will show if it works.
+        getWorker(null).catch(e => console.log("Pre-init failed (expected if no context):", e));
+
+        window.addEventListener('message', async (event) => {
+            const { action, imageData } = event.data;
+
+            if (action === 'init') {
+                // Just trigger init
+                getWorker(event).catch(console.error);
+            }
+            else if (action === 'ocr') {
+                try {
+                    const worker = await getWorker(event);
+
+                    event.source.postMessage({ action: 'progress', data: { status: 'recognizing', progress: 0 } }, event.origin);
                     const ret = await worker.recognize(imageData);
-
                     event.source.postMessage({ action: 'result', text: ret.data.text }, event.origin);
 
-                    await worker.terminate();
+                    // Keep worker alive for next time (in same session)
                 } catch (err) {
                     console.error("Sandbox Error:", err);
                     event.source.postMessage({ action: 'error', error: err.message || JSON.stringify(err) }, event.origin);
+                    // Reset if crashed
+                    if (ocrWorker) {
+                        try { await ocrWorker.terminate(); } catch (e) { }
+                        ocrWorker = null;
+                    }
                 }
             }
         });

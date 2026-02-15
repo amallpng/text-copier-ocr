@@ -142,8 +142,29 @@ document.addEventListener('DOMContentLoaded', () => {
             cropCanvas.width = finalW;
             cropCanvas.height = finalH;
             const cropCtx = cropCanvas.getContext('2d');
+
+            // OPTIMIZATION: Grayscale
+            cropCtx.filter = 'grayscale(100%) contrast(1.2)';
+
             cropCtx.drawImage(canvas, finalX, finalY, finalW, finalH, 0, 0, finalW, finalH);
-            const imageData = cropCanvas.toDataURL('image/png');
+
+            // OPTIMIZATION: Resize if too large (e.g. > 1500px width)
+            // Tesseract is slow on huge images.
+            let exportData;
+            const MAX_DIM = 1500;
+            if (finalW > MAX_DIM || finalH > MAX_DIM) {
+                const scaleCanvas = document.createElement('canvas');
+                const scale = Math.min(MAX_DIM / finalW, MAX_DIM / finalH);
+                scaleCanvas.width = finalW * scale;
+                scaleCanvas.height = finalH * scale;
+                const scaleCtx = scaleCanvas.getContext('2d');
+                scaleCtx.drawImage(cropCanvas, 0, 0, scaleCanvas.width, scaleCanvas.height);
+                exportData = scaleCanvas.toDataURL('image/jpeg', 0.8); // JPEG is faster/smaller than PNG
+            } else {
+                exportData = cropCanvas.toDataURL('image/jpeg', 0.9);
+            }
+
+            const imageData = exportData;
 
             if (imageData === 'data:,') {
                 throw new Error("Cropped image is empty. Please re-select the area.");
@@ -153,20 +174,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const iframe = document.getElementById('ocr-sandbox');
             if (!iframe) throw new Error("Sandbox environment not loaded.");
 
-            // Post message to sandbox
+            // Post message to sandbox (This will use the pre-warmed worker)
             iframe.contentWindow.postMessage({
                 action: 'ocr',
                 imageData: imageData
             }, '*');
 
-            // Add failure timeout (e.g., 20 seconds) - prevents infinite spinner
+            // Add failure timeout (60 seconds)
             if (window.ocrTimeout) clearTimeout(window.ocrTimeout);
             window.ocrTimeout = setTimeout(() => {
                 if (btnProcess.disabled) {
-                    alert('OCR Timed Out.\nPossible causes: Slow network (first run only) or processing error.\nTry again or use a smaller selection.');
+                    alert('OCR is taking too long (60s). resetting engine...');
+                    // Reset Sandbox to clear stuck worker
+                    iframe.src = iframe.src;
                     updateButtonState('ready');
                 }
-            }, 20000);
+            }, 60000);
 
         } catch (err) {
             console.error(err);
@@ -187,10 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (window.ocrTimeout) clearTimeout(window.ocrTimeout);
             window.ocrTimeout = setTimeout(() => {
                 if (btnProcess.disabled) {
-                    alert('OCR Timed Out during processing step.');
+                    alert('OCR Timed Out during processing. Resetting...');
+                    const iframe = document.getElementById('ocr-sandbox');
+                    if (iframe) iframe.src = iframe.src;
                     updateButtonState('ready');
                 }
-            }, 20000);
+            }, 60000);
 
             if (data.status === 'recognizing text') {
                 updateButtonState('progress', Math.round((data.progress || 0) * 100));
@@ -225,4 +250,32 @@ document.addEventListener('DOMContentLoaded', () => {
             setTimeout(() => btnCopy.innerText = originalText, 2000);
         });
     });
+
+    // AUTO-INIT: Pre-warm the worker as soon as load finishes
+    setTimeout(async () => {
+        const iframe = document.getElementById('ocr-sandbox');
+        if (iframe && iframe.contentWindow) {
+            console.log("Pre-warming OCR worker...");
+
+            // Manually fetch lang data to bypass sandbox restrictions
+            try {
+                const langUrl = chrome.runtime.getURL('lib/eng.traineddata.gz');
+                const response = await fetch(langUrl);
+                const blob = await response.blob();
+                const blobUrl = URL.createObjectURL(blob);
+                console.log("Created Blob URL for lang data:", blobUrl);
+
+                // Pass this blob URL to the sandbox
+                iframe.contentWindow.postMessage({
+                    action: 'init',
+                    langBlobUrl: blobUrl
+                }, '*');
+
+            } catch (e) {
+                console.error("Failed to load lang data:", e);
+                // Fallback to normal init
+                iframe.contentWindow.postMessage({ action: 'init' }, '*');
+            }
+        }
+    }, 500);
 });

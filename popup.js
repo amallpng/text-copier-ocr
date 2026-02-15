@@ -1,7 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     const copyToggle = document.getElementById('copyToggle');
     const btnCapture = document.getElementById('btnCapture');
-    const btnStop = document.getElementById('btnStop');
 
     // Load saved state
     chrome.storage.sync.get('copyMode', (data) => {
@@ -16,9 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
         chrome.runtime.sendMessage({ action: 'broadcast', data: { action: 'toggleCopy', enabled: enabled } });
     });
 
-    btnStop.addEventListener('click', () => {
-        chrome.runtime.sendMessage({ action: 'broadcast', data: { action: 'stopVideo' } });
-    });
+
 
     btnCapture.addEventListener('click', () => {
         // Send message to background to handle capture
