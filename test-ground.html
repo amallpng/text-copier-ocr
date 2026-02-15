@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Extension Test Ground</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            max-width: 700px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin-top: 0;
+            color: #6366f1;
+        }
+
+        /* RESTRICTED CONTENT STYLES */
+        .restricted-box {
+            background: #ffe4e6;
+            border: 2px solid #e11d48;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+            user-select: none;
+            /* CSS Coping Check */
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        .video-box {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        video {
+            width: 100%;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+
+<body oncontextmenu="return false;"> <!-- JS Right Click Block -->
+
+    <div class="container">
+        <h1>Extension Test Ground 🛡️</h1>
+        <p>This page mimics a site with heavy copy restrictions.</p>
+
+        <div class="restricted-box" id="cant-touch-this">
+            <h3>🚫 Restricted Area</h3>
+            <p>You cannot select this text normally.</p>
+            <p>Right-click is also disabled on this entire page.</p>
+            <p><strong>Task 1:</strong> Use the extension "Unlock Text Selection" toggle to copy this text.</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🎥 Video Control Test</h2>
+        <p><strong>Task 2:</strong> Play the video below, then use the extension's "Stop/Pause Page" button.</p>
+        <p><strong>Task 3:</strong> Use "Extract Video Text" to grab the text inside the video.</p>
+
+        <div class="video-box">
+            <!-- Simple video with some text-like elements or just generic playback -->
+            <video id="testVideo" controls loop>
+                <source src="https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.webm"
+                    type="video/webm">
+                Your browser does not support the video tag.
+            </video>
+        </div>
+    </div>
+
+    <script>
+        // Additional JS preventions
+        document.addEventListener('keydown', function (e) {
+            if (e.ctrlKey && (e.key === 'c' || e.key === 'u' || e.key === 's')) {
+                e.preventDefault();
+                alert('Shortcuts disabled by checking script!');
+            }
+        });
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,60 @@
+{
+    "manifest_version": 3,
+    "name": "Text Copier & Video OCR Tool",
+    "version": "1.5",
+    "description": "Unlock copy on restricted sites and extract text from videos.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "storage",
+        "tabs",
+        "webNavigation"
+    ],
+    "action": {
+        "default_popup": "popup.html",
+        "default_icon": {
+            "16": "icons/icon16.png",
+            "48": "icons/icon48.png",
+            "128": "icons/icon128.png"
+        }
+    },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": [
+                "<all_urls>"
+            ],
+            "js": [
+                "content.js"
+            ],
+            "css": [
+                "content.css"
+            ],
+            "all_frames": true,
+            "run_at": "document_start"
+        }
+    ],
+    "web_accessible_resources": [
+        {
+            "resources": [
+                "capture.html",
+                "lib/*",
+                "icons/*"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
+        }
+    ],
+    "sandbox": {
+        "pages": [
+            "ocr-sandbox.html"
+        ]
+    },
+    "content_security_policy": {
+        "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'; connect-src * data: blob: filesystem:;",
+        "sandbox": "sandbox allow-scripts allow-forms allow-popups allow-modals; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; child-src 'self' blob:; worker-src 'self' blob:;"
+    }
+}

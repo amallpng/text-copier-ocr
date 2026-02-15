@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="lib/tesseract.min.js"></script>
+</head>
+
+<body>
+    <script>
+        window.addEventListener('message', async (event) => {
+            const { action, imageData, lang } = event.data;
+
+            if (action === 'ocr') {
+                try {
+                    // Report status
+                    event.source.postMessage({ action: 'progress', data: { status: 'initializing', progress: 0 } }, event.origin);
+
+                    // Use local paths for everything to rely on the downloaded files
+                    const worker = await Tesseract.createWorker('eng', 1, {
+                        workerPath: 'lib/worker.min.js',
+                        corePath: 'lib/tesseract-core.wasm.js',
+                        langPath: 'lib/', // Points to lib/eng.traineddata.gz
+                        logger: m => {
+                            event.source.postMessage({ action: 'progress', data: m }, event.origin);
+                        },
+                        errorHandler: err => {
+                            console.error("Tesseract Internal Error:", err);
+                            event.source.postMessage({ action: 'error', error: "Internal: " + err }, event.origin);
+                        }
+                    });
+
+                    event.source.postMessage({ action: 'progress', data: { status: 'recognizing', progress: 0.1 } }, event.origin);
+
+                    const ret = await worker.recognize(imageData);
+
+                    event.source.postMessage({ action: 'result', text: ret.data.text }, event.origin);
+
+                    await worker.terminate();
+                } catch (err) {
+                    console.error("Sandbox Error:", err);
+                    event.source.postMessage({ action: 'error', error: err.message || JSON.stringify(err) }, event.origin);
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>
